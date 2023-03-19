@@ -2,19 +2,24 @@ import torch
 import torch.nn as nn
 
 from transformers import PreTrainedModel
-from torchvision.models import resnet18
+from torchvision import models
 
 from config import AIGeneratedImageDetectorConfig
 
-class AIGeneratedImageDetector(PreTrainedModel):
+    
+class AIGeneratedImageDetectorForClassification(PreTrainedModel):
     config_class = AIGeneratedImageDetectorConfig
 
     def __init__(self, config):
         super().__init__(config)
-        self.backbone = resnet18()
-        self.classifier = nn.Linear(self.backbone.fc.weight.shape[0], 1)
+        self.model = models.__dict__[config.backbone_name](
+            weights=config.weights,
+            num_classes=config.num_classes
+        )
 
-    def forward(self, x):
-        x = self.backbone(x)
-        x = self.classifier(x).flatten()
-        return torch.sigmoid(x)
+    def forward(self, tensor, labels=None):
+        logits = self.model(tensor)
+        if labels is not None:
+            loss = torch.nn.cross_entropy(logits, labels)
+            return {"loss": loss, "logits": logits}
+        return {"logits": logits}
